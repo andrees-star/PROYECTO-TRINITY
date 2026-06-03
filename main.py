@@ -2,75 +2,123 @@ import pandas as pd
 from pathlib import Path
 
 # =========================
-# 1. Configuración de rutas
+# 1. Rutas
 # =========================
 
 INPUT_FILE = "data/2df_final_completo_23.xlsx"
 OUTPUT_DIR = Path("outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-print("Iniciando pipeline de diagnóstico financiero")
+print("Iniciando pipeline de preparación de base modelo")
 print(f"Leyendo archivo: {INPUT_FILE}")
 
 # =========================
-# 2. Leer archivo Excel
+# 2. Leer Excel
 # =========================
 
 df = pd.read_excel(INPUT_FILE)
 
 print("Archivo cargado correctamente")
-print(f"Filas: {df.shape[0]}")
-print(f"Columnas: {df.shape[1]}")
+print(f"Filas originales: {df.shape[0]}")
+print(f"Columnas originales: {df.shape[1]}")
 
 # =========================
-# 3. Resumen de columnas
+# 3. Variables del modelo
 # =========================
 
-resumen_columnas = pd.DataFrame({
-    "columna": df.columns,
-    "tipo_dato": [df[col].dtype for col in df.columns],
-    "nulos": [df[col].isna().sum() for col in df.columns],
-    "porcentaje_nulos": [round(df[col].isna().mean() * 100, 2) for col in df.columns],
-    "valores_unicos": [df[col].nunique(dropna=True) for col in df.columns]
-})
+variables_modelo = [
+    "raz",
+    "teso",
+    "rota",
+    "margenb",
+    "margen",
+    "ractiv",
+    "rpatri",
+    "niven",
+    "apalc",
+    "apaltot",
+    "activos_pasivos",
+    "pasivo_corto_pasivo_total",
+    "margen_operacional",
+    "ctno_ventas_preciso"
+]
+
+variables_objetivo = [
+    "riesgo_24",
+    "riesgo_2425"
+]
+
+variables_identificacion = [
+    "NIT",
+    "Razón social de la sociedad_balance"
+]
 
 # =========================
-# 4. Resumen de nulos
+# 4. Validar columnas
 # =========================
 
-resumen_nulos = resumen_columnas.sort_values(
-    by="porcentaje_nulos",
-    ascending=False
-)
+columnas_necesarias = variables_identificacion + variables_modelo + variables_objetivo
+
+columnas_faltantes = [col for col in columnas_necesarias if col not in df.columns]
+
+if columnas_faltantes:
+    raise ValueError(f"Faltan columnas en la base: {columnas_faltantes}")
+
+print("Todas las columnas necesarias están disponibles")
 
 # =========================
-# 5. Estadísticas de variables numéricas
+# 5. Crear base modelo
 # =========================
 
-variables_numericas = df.select_dtypes(include=["number"])
+base_modelo = df[columnas_necesarias].copy()
 
-if not variables_numericas.empty:
-    estadisticas_numericas = variables_numericas.describe().T
-else:
-    estadisticas_numericas = pd.DataFrame({
-        "mensaje": ["No se detectaron variables numéricas"]
-    })
+# Convertir variables financieras a numéricas
+for col in variables_modelo:
+    base_modelo[col] = pd.to_numeric(base_modelo[col], errors="coerce")
 
-# =========================
-# 6. Muestra de datos
-# =========================
-
-muestra = df.head(100)
+# Convertir variables objetivo a numéricas
+for col in variables_objetivo:
+    base_modelo[col] = pd.to_numeric(base_modelo[col], errors="coerce")
 
 # =========================
-# 7. Guardar resultados
+# 6. Reporte de nulos
 # =========================
 
-with pd.ExcelWriter(OUTPUT_DIR / "diagnostico_base_financiera.xlsx", engine="openpyxl") as writer:
-    resumen_columnas.to_excel(writer, sheet_name="columnas", index=False)
-    resumen_nulos.to_excel(writer, sheet_name="nulos", index=False)
-    estadisticas_numericas.to_excel(writer, sheet_name="estadisticas")
-    muestra.to_excel(writer, sheet_name="muestra_100", index=False)
+reporte_nulos = pd.DataFrame({
+    "variable": base_modelo.columns,
+    "nulos": base_modelo.isna().sum().values,
+    "porcentaje_nulos": (base_modelo.isna().mean().values * 100).round(2)
+}).sort_values(by="porcentaje_nulos", ascending=False)
 
-print("Diagnóstico generado correctamente")
-print("Archivo creado: outputs/diagnostico_base_financiera.xlsx")
+# =========================
+# 7. Base completa sin nulos en variables del modelo
+# =========================
+
+base_modelo_completa = base_modelo.dropna(subset=variables_modelo + variables_objetivo)
+
+print(f"Filas base modelo: {base_modelo.shape[0]}")
+print(f"Filas base modelo completa: {base_modelo_completa.shape[0]}")
+
+# =========================
+# 8. Distribución de clases
+# =========================
+
+dist_riesgo_24 = base_modelo_completa["riesgo_24"].value_counts(dropna=False).reset_index()
+dist_riesgo_24.columns = ["riesgo_24", "cantidad"]
+
+dist_riesgo_2425 = base_modelo_completa["riesgo_2425"].value_counts(dropna=False).reset_index()
+dist_riesgo_2425.columns = ["riesgo_2425", "cantidad"]
+
+# =========================
+# 9. Guardar resultados
+# =========================
+
+with pd.ExcelWriter(OUTPUT_DIR / "base_modelo_insolvencia.xlsx", engine="openpyxl") as writer:
+    base_modelo.to_excel(writer, sheet_name="base_modelo", index=False)
+    base_modelo_completa.to_excel(writer, sheet_name="base_completa", index=False)
+    reporte_nulos.to_excel(writer, sheet_name="reporte_nulos", index=False)
+    dist_riesgo_24.to_excel(writer, sheet_name="distribucion_2024", index=False)
+    dist_riesgo_2425.to_excel(writer, sheet_name="distribucion_2425", index=False)
+
+print("Archivo generado correctamente:")
+print("outputs/base_modelo_insolvencia.xlsx")
