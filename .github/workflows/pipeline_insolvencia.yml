@@ -1,0 +1,41 @@
+name: Pipeline insolvencia
+
+on:
+  workflow_dispatch:
+
+  push:
+    paths:
+      - "data/*.xlsx"
+      - "main.py"
+      - "requirements.txt"
+      - ".github/workflows/**"
+
+jobs:
+  ejecutar-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Crear carpeta outputs
+        run: mkdir -p outputs
+
+      - name: Ejecutar script principal
+        run: python main.py
+
+      - name: Guardar resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-insolvencia
+          path: outputs/
