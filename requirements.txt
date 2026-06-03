@@ -1,2 +1,15 @@
-pandas
+
 openpyxl
+pandas
+numpy
+openpyxl
+matplotlib
+seaborn
+scipy
+statsmodels
+scikit-learn
+xgboost
+pygam
+imbalanced-learn
+python-docx
+joblib
