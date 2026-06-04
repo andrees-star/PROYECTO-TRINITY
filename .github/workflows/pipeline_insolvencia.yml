@@ -7,6 +7,7 @@ on:
     paths:
       - "data/*.xlsx"
       - "main.py"
+      - "train_models.py"
       - "requirements.txt"
       - ".github/workflows/**"
 
@@ -31,8 +32,11 @@ jobs:
       - name: Crear carpeta outputs
         run: mkdir -p outputs
 
-      - name: Ejecutar script principal
+      - name: Ejecutar preparación de base
         run: python main.py
+
+      - name: Entrenar regresión logística
+        run: python train_models.py
 
       - name: Guardar resultados
         uses: actions/upload-artifact@v4
