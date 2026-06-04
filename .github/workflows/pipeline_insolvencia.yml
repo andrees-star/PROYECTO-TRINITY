@@ -10,6 +10,8 @@ on:
       - "train_models.py"
       - "requirements.txt"
       - ".github/workflows/**"
+      - "score_new_data.py"
+      - "data/new_firms_5.xlsx"
 
 jobs:
   ejecutar-pipeline:
@@ -37,6 +39,9 @@ jobs:
 
       - name: Entrenar regresión logística
         run: python train_models.py
+
+      - name: Scoring nuevas empresas
+        run: python score_new_data.py
 
       - name: Guardar resultados
         uses: actions/upload-artifact@v4
